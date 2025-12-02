@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>管理画面 - トラック到着予定</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:sans-serif;margin:16px;background:#f5f5f5;}
+    h1{font-size:18px;}
+    table{width:100%;border-collapse:collapse;background:#fff;}
+    th,td{border:1px solid #ddd;padding:6px;font-size:12px;text-align:center;}
+    th{background:#eee;}
+    .done{background:#ffe5e5;color:#c00;}
+  </style>
+</head>
+<body>
+<h1>管理画面（会社名・登録者名付き一覧）</h1>
+<table>
+  <thead>
+    <tr>
+      <th>会社名</th><th>登録者</th>
+      <th>到着予定時刻</th><th>登録時間</th><th>完了</th>
+    </tr>
+  </thead>
+  <tbody id="list"></tbody>
+</table>
+
+<script type="module">
+  const firebaseConfig = {
+    apiKey: "AIzaSyAWE4eJElTGjp4X2SBludYJMIsCGJC0QjQ",
+    authDomain: "estate-12e98.firebaseapp.com",
+    projectId: "estate-12e98",
+    storageBucket: "estate-12e98.firebasestorage.app",
+    messagingSenderId: "879955114356",
+    appId: "1:879955114356:web:2ae09fc035b4e135add421",
+    measurementId: "G-QF6TQGQ6ET"
+  };
+
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import {
+    getFirestore, collection, query, orderBy, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const privateRef = collection(db, "privateTrucks");
+  const listEl = document.getElementById("list");
+
+  const q = query(privateRef, orderBy("time"), orderBy("createdAt","desc"));
+  onSnapshot(q, (snapshot) => {
+    listEl.innerHTML = "";
+    snapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      const tr = document.createElement("tr");
+      if (d.done) tr.classList.add("done");
+      const created = d.createdAt?.toDate
+        ? d.createdAt.toDate().toLocaleString("ja-JP")
+        : "";
+      tr.innerHTML = `
+        <td>${d.company || ""}</td>
+        <td>${d.userName || ""}</td>
+        <td>${d.time || ""}</td>
+        <td>${created}</td>
+        <td>${d.done ? "完了" : ""}</td>
+      `;
+      listEl.appendChild(tr);
+    });
+  });
+</script>
+</body>
+</html>
