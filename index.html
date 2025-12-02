@@ -5,88 +5,158 @@
   <title>トラック到着予定一覧</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; margin: 16px; }
-    h1 { font-size: 20px; }
-    label { display: block; margin-top: 8px; }
-    input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
-    button { margin-top: 12px; padding: 10px; width: 100%; }
-    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
-    th { background: #f0f0f0; }
+    body{font-family:sans-serif;margin:0;background:#f5f5f5;}
+    header{background:#1976d2;color:#fff;padding:12px 16px;}
+    h1{font-size:20px;margin:0;}
+    main{padding:16px;max-width:800px;margin:0 auto;}
+    .card{background:#fff;padding:16px;border-radius:8px;
+      box-shadow:0 2px 4px rgba(0,0,0,0.1);margin-bottom:16px;}
+    label{display:block;margin-top:8px;font-size:14px;}
+    input{width:100%;padding:8px;margin-top:4px;
+      box-sizing:border-box;border:1px solid #ccc;border-radius:4px;}
+    button{margin-top:12px;padding:10px;width:100%;border:none;border-radius:4px;
+      background:#1976d2;color:#fff;font-size:15px;font-weight:bold;}
+    button:active{opacity:.8;}
+    h2{font-size:16px;margin:16px 0 8px;}
+    table{width:100%;border-collapse:collapse;background:#fff;}
+    th,td{border:1px solid #ddd;padding:6px;font-size:12px;text-align:center;}
+    th{background:#eee;}
+    .done{background:#ffe5e5;color:#c00;} /* 完了を赤系で表示 */
+    .hidden{display:none;}
   </style>
 </head>
 <body>
-  <h1>トラック到着予定入力</h1>
+<header><h1>トラック到着予定</h1></header>
+<main>
 
-  <form id="truck-form">
-    <label>
-      会社名
-      <input id="company" required placeholder="例）○○運送">
+  <!-- ログインカード -->
+  <section class="card" id="login-card">
+    <h2>ログイン</h2>
+    <label>会社名
+      <input id="login-company" placeholder="例）○○運送">
     </label>
-    <label>
-      到着予定時刻
-      <input id="time" type="time" required>
+    <label>名前
+      <input id="login-name" placeholder="例）山田 太郎">
     </label>
-    <button type="submit">登録する</button>
-  </form>
+    <button id="login-button">ログイン</button>
+  </section>
 
-  <h2>到着予定一覧</h2>
+  <!-- 入力カード（ログイン後に表示） -->
+  <section class="card hidden" id="form-card">
+    <div id="login-user-label" style="font-size:12px;color:#555;margin-bottom:8px;"></div>
+    <form id="truck-form">
+      <label>到着予定時刻
+        <input id="time" type="time" required>
+      </label>
+      <button type="submit">登録する</button>
+    </form>
+  </section>
+
+  <h2>到着予定一覧（誰でも閲覧可）</h2>
   <table>
     <thead>
-      <tr><th>会社名</th><th>到着予定時刻</th><th>登録時間</th></tr>
+      <tr><th>到着予定時刻</th><th>登録時間</th><th>完了</th></tr>
     </thead>
     <tbody id="list"></tbody>
   </table>
 
-  <script type="module">
-    // ここを「あなたの firebaseConfig」で置き換えます
+</main>
+
+<script type="module">
   const firebaseConfig = {
-  apiKey: "AIzaSyAWE4eJElTGjp4X2SBludYJMIsCGJC0QjQ",
-  authDomain: "estate-12e98.firebaseapp.com",
-  projectId: "estate-12e98",
-  storageBucket: "estate-12e98.firebasestorage.app",
-  messagingSenderId: "879955114356",
-  appId: "1:879955114356:web:2ae09fc035b4e135add421",
-  measurementId: "G-QF6TQGQ6ET"
-};
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import {
-      getFirestore, collection, addDoc,
-      serverTimestamp, query, orderBy, onSnapshot
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    apiKey: "AIzaSyAWE4eJElTGjp4X2SBludYJMIsCGJC0QjQ",
+    authDomain: "estate-12e98.firebaseapp.com",
+    projectId: "estate-12e98",
+    storageBucket: "estate-12e98.firebasestorage.app",
+    messagingSenderId: "879955114356",
+    appId: "1:879955114356:web:2ae09fc035b4e135add421",
+    measurementId: "G-QF6TQGQ6ET"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const trucksRef = collection(db, "trucks");
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, serverTimestamp,
+    query, orderBy, onSnapshot, doc, updateDoc
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-    const form = document.getElementById("truck-form");
-    const companyInput = document.getElementById("company");
-    const timeInput = document.getElementById("time");
-    const listEl = document.getElementById("list");
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const publicRef = collection(db, "publicTrucks");
+  const privateRef = collection(db, "privateTrucks");
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const company = companyInput.value.trim();
-      const time = timeInput.value;
-      if (!company || !time) return;
-      await addDoc(trucksRef, { company, time, createdAt: serverTimestamp() });
-      companyInput.value = "";
-      timeInput.value = "";
+  const loginCard = document.getElementById("login-card");
+  const formCard = document.getElementById("form-card");
+  const loginCompanyInput = document.getElementById("login-company");
+  const loginNameInput = document.getElementById("login-name");
+  const loginButton = document.getElementById("login-button");
+  const loginUserLabel = document.getElementById("login-user-label");
+
+  let currentUser = null; // { company, name }
+
+  loginButton.addEventListener("click", () => {
+    const company = loginCompanyInput.value.trim();
+    const name = loginNameInput.value.trim();
+    if (!company || !name) return;
+    currentUser = { company, name };
+    loginUserLabel.textContent = `ログイン中：${company} / ${name}`;
+    loginCard.classList.add("hidden");
+    formCard.classList.remove("hidden");
+  });
+
+  const form = document.getElementById("truck-form");
+  const timeInput = document.getElementById("time");
+  const listEl = document.getElementById("list");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    const time = timeInput.value;
+    if (!time) return;
+
+    const base = {
+      time,
+      createdAt: serverTimestamp(),
+      done: false
+    };
+
+    // 公開用（会社名・登録者なし）
+    await addDoc(publicRef, base);
+
+    // 内部用（会社名・登録者を含む）
+    await addDoc(privateRef, {
+      ...base,
+      company: currentUser.company,
+      userName: currentUser.name
     });
 
-    const q = query(trucksRef, orderBy("time"), orderBy("createdAt", "desc"));
-    onSnapshot(q, (snapshot) => {
-      listEl.innerHTML = "";
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const tr = document.createElement("tr");
-        const created = data.createdAt?.toDate
-          ? data.createdAt.toDate().toLocaleString("ja-JP")
-          : "";
-        tr.innerHTML = `<td>${data.company}</td><td>${data.time}</td><td>${created}</td>`;
-        listEl.appendChild(tr);
+    timeInput.value = "";
+  });
+
+  const q = query(publicRef, orderBy("time"), orderBy("createdAt", "desc"));
+  onSnapshot(q, (snapshot) => {
+    listEl.innerHTML = "";
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const tr = document.createElement("tr");
+      if (data.done) tr.classList.add("done");
+      const created = data.createdAt?.toDate
+        ? data.createdAt.toDate().toLocaleString("ja-JP")
+        : "";
+      tr.innerHTML = `
+        <td>${data.time}</td>
+        <td>${created}</td>
+        <td>
+          <input type="checkbox" ${data.done ? "checked" : ""}>
+        </td>`;
+      const checkbox = tr.querySelector("input[type=checkbox]");
+      checkbox.addEventListener("change", async () => {
+        await updateDoc(doc(db, "publicTrucks", docSnap.id), {
+          done: checkbox.checked
+        });
       });
+      listEl.appendChild(tr);
     });
-  </script>
+  });
+</script>
 </body>
 </html>
