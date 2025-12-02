@@ -105,6 +105,16 @@
 
   const form = document.getElementById("truck-form");
   const timeInput = document.getElementById("time");
+  // 直前の入力値を復元
+const savedTime = localStorage.getItem("draftTime");
+if (savedTime) {
+  timeInput.value = savedTime;
+}
+
+// 入力されるたびに自動保存
+timeInput.addEventListener("input", () => {
+  localStorage.setItem("draftTime", timeInput.value);
+});
   const listEl = document.getElementById("list");
 
   form.addEventListener("submit", async (e) => {
@@ -113,24 +123,27 @@
     const time = timeInput.value;
     if (!time) return;
 
-    const base = {
-      time,
-      createdAt: serverTimestamp(),
-      done: false
-    };
+   const base = {
+    time,
+    done: false,
+    createdAt: serverTimestamp(),
+  };
 
-    // 公開用（会社名・登録者なし）
-    await addDoc(publicRef, base);
+  // 公開用（会社名・登録者なし）
+  await addDoc(publicRef, base);
 
-    // 内部用（会社名・登録者を含む）
-    await addDoc(privateRef, {
-      ...base,
-      company: currentUser.company,
-      userName: currentUser.name
-    });
-
-    timeInput.value = "";
+  // 内部用（会社名・登録者あり）
+  await addDoc(privateRef, {
+    ...base,
+    company: currentUser.company,
+    userName: currentUser.name,
   });
+
+  // ★ 下書きを削除
+  localStorage.removeItem("draftTime");
+
+  timeInput.value = "";
+});
 
   const q = query(publicRef, orderBy("time"), orderBy("createdAt", "desc"));
   onSnapshot(q, (snapshot) => {
@@ -160,3 +173,4 @@
 </script>
 </body>
 </html>
+
