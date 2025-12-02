@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>トラック到着予定一覧</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; margin: 16px; }
+    h1 { font-size: 20px; }
+    label { display: block; margin-top: 8px; }
+    input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+    button { margin-top: 12px; padding: 10px; width: 100%; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+    th { background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>トラック到着予定入力</h1>
+
+  <form id="truck-form">
+    <label>
+      会社名
+      <input id="company" required placeholder="例）○○運送">
+    </label>
+    <label>
+      到着予定時刻
+      <input id="time" type="time" required>
+    </label>
+    <button type="submit">登録する</button>
+  </form>
+
+  <h2>到着予定一覧</h2>
+  <table>
+    <thead>
+      <tr><th>会社名</th><th>到着予定時刻</th><th>登録時間</th></tr>
+    </thead>
+    <tbody id="list"></tbody>
+  </table>
+
+  <script type="module">
+    // ここを「あなたの firebaseConfig」で置き換えます
+  const firebaseConfig = {
+  apiKey: "AIzaSyAWE4eJElTGjp4X2SBludYJMIsCGJC0QjQ",
+  authDomain: "estate-12e98.firebaseapp.com",
+  projectId: "estate-12e98",
+  storageBucket: "estate-12e98.firebasestorage.app",
+  messagingSenderId: "879955114356",
+  appId: "1:879955114356:web:2ae09fc035b4e135add421",
+  measurementId: "G-QF6TQGQ6ET"
+};
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc,
+      serverTimestamp, query, orderBy, onSnapshot
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const trucksRef = collection(db, "trucks");
+
+    const form = document.getElementById("truck-form");
+    const companyInput = document.getElementById("company");
+    const timeInput = document.getElementById("time");
+    const listEl = document.getElementById("list");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const company = companyInput.value.trim();
+      const time = timeInput.value;
+      if (!company || !time) return;
+      await addDoc(trucksRef, { company, time, createdAt: serverTimestamp() });
+      companyInput.value = "";
+      timeInput.value = "";
+    });
+
+    const q = query(trucksRef, orderBy("time"), orderBy("createdAt", "desc"));
+    onSnapshot(q, (snapshot) => {
+      listEl.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const tr = document.createElement("tr");
+        const created = data.createdAt?.toDate
+          ? data.createdAt.toDate().toLocaleString("ja-JP")
+          : "";
+        tr.innerHTML = `<td>${data.company}</td><td>${data.time}</td><td>${created}</td>`;
+        listEl.appendChild(tr);
+      });
+    });
+  </script>
+</body>
+</html>
